@@ -3,6 +3,12 @@
 
 职责: 系统主容器，使用 Open3D Window 管理所有子组件
 依赖: o3d.visualization.gui, o3d.visualization.rendering (Open3D 0.19+)
+
+功能特性:
+    - 左侧面板支持向左完全折叠
+    - 底部面板支持向下完全折叠
+    - 折叠状态自动保存
+    - 快捷键支持 (L=左侧, B=底部)
 """
 
 from __future__ import annotations
@@ -23,19 +29,22 @@ class MainWindow:
 
     使用 Open3D 原生 GUI 框架构建，包含：
     - 3D 渲染区域 (SceneWidget)
-    - 左侧面板 (DB树 + 属性窗口)
-    - 底部控制台面板
+    - 左侧面板 (DB树 + 属性窗口) - 支持折叠
+    - 底部控制台面板 - 支持折叠
     """
 
     # 默认窗口尺寸
     DEFAULT_WIDTH: int = 1280
     DEFAULT_HEIGHT: int = 800
 
-    # 左侧面板默认宽度 (像素)
+    # 左侧面板展开宽度 (像素)
     LEFT_PANEL_WIDTH: int = 250
 
-    # 底部面板默认高度 (像素)
+    # 底部面板展开高度 (像素)
     BOTTOM_PANEL_HEIGHT: int = 150
+
+    # 折叠后残留宽度/高度 (用于折叠按钮可见)
+    COLLAPSED_SIZE: int = 5
 
     def __init__(
         self,
@@ -60,6 +69,14 @@ class MainWindow:
         self._scene_widget: Optional[gui.SceneWidget] = None
         self._left_panel: Optional[gui.Vert] = None
         self._bottom_panel: Optional[gui.ScrollableVert] = None
+
+        # 折叠按钮
+        self._left_toggle_btn: Optional[gui.Button] = None
+        self._bottom_toggle_btn: Optional[gui.Button] = None
+
+        # 折叠状态
+        self._left_panel_collapsed: bool = False
+        self._bottom_panel_collapsed: bool = False
 
         # 控制台文本控件
         self._console_text: Optional[gui.TextEdit] = None
@@ -107,6 +124,16 @@ class MainWindow:
         """获取窗口运行状态"""
         return self._is_running
 
+    @property
+    def is_left_panel_collapsed(self) -> bool:
+        """获取左侧面板折叠状态"""
+        return self._left_panel_collapsed
+
+    @property
+    def is_bottom_panel_collapsed(self) -> bool:
+        """获取底部面板折叠状态"""
+        return self._bottom_panel_collapsed
+
     # =========================================================================
     # 公共方法
     # =========================================================================
@@ -118,20 +145,26 @@ class MainWindow:
         # 1. 创建主窗口
         self._create_window()
 
-        # 2. 创建 3D 场景控件
+        # 2. 创建折叠按钮
+        self._create_toggle_buttons()
+
+        # 3. 创建 3D 场景控件
         self._create_scene_widget()
 
-        # 3. 创建左侧面板
+        # 4. 创建左侧面板
         self._create_left_panel()
 
-        # 4. 创建底部控制台面板
+        # 5. 创建底部控制台面板
         self._create_bottom_panel()
 
-        # 5. 设置自定义布局回调
+        # 6. 设置自定义布局回调
         self._setup_layout()
 
-        # 6. 设置场景
+        # 7. 设置场景
         self._setup_scene()
+
+        # 8. 设置键盘快捷键
+        self._setup_shortcuts()
 
         _logger.debug(f"MainWindow initialized: {self._width}x{self._height}")
 
@@ -178,6 +211,20 @@ class MainWindow:
         if self._console_text is not None:
             self._console_text.text_value = ""
 
+    def toggle_left_panel(self) -> None:
+        """切换左侧面板折叠状态"""
+        self._left_panel_collapsed = not self._left_panel_collapsed
+        self._update_toggle_button_text()
+        self._force_layout_update()
+        _logger.debug(f"Left panel collapsed: {self._left_panel_collapsed}")
+
+    def toggle_bottom_panel(self) -> None:
+        """切换底部面板折叠状态"""
+        self._bottom_panel_collapsed = not self._bottom_panel_collapsed
+        self._update_toggle_button_text()
+        self._force_layout_update()
+        _logger.debug(f"Bottom panel collapsed: {self._bottom_panel_collapsed}")
+
     # =========================================================================
     # 私有方法
     # =========================================================================
@@ -189,6 +236,25 @@ class MainWindow:
         )
         self._window.set_on_close(self._handle_close)
         _logger.debug("Window created.")
+
+    def _create_toggle_buttons(self) -> None:
+        """创建折叠按钮"""
+        self._left_toggle_btn = gui.Button("◀")
+        self._left_toggle_btn.set_on_clicked(self.toggle_left_panel)
+
+        self._bottom_toggle_btn = gui.Button("▲")
+        self._bottom_toggle_btn.set_on_clicked(self.toggle_bottom_panel)
+
+        self._window.add_child(self._left_toggle_btn)
+        self._window.add_child(self._bottom_toggle_btn)
+        _logger.debug("Toggle buttons created.")
+
+    def _update_toggle_button_text(self) -> None:
+        """更新折叠按钮文本"""
+        if self._left_toggle_btn is not None:
+            self._left_toggle_btn.text = "▶" if self._left_panel_collapsed else "◀"
+        if self._bottom_toggle_btn is not None:
+            self._bottom_toggle_btn.text = "▼" if self._bottom_panel_collapsed else "▲"
 
     def _create_scene_widget(self) -> None:
         """创建 3D 场景渲染控件"""
@@ -279,21 +345,54 @@ class MainWindow:
 
         _logger.debug("Scene setup completed.")
 
+    def _setup_shortcuts(self) -> None:
+        """设置键盘快捷键"""
+        # L 键切换左侧面板
+        self._window.add_key_callback(gui.KeyName.L, lambda: self.toggle_left_panel())
+        # B 键切换底部面板
+        self._window.add_key_callback(gui.KeyName.B, lambda: self.toggle_bottom_panel())
+        _logger.debug("Keyboard shortcuts configured (L=left, B=bottom).")
+
+    def _force_layout_update(self) -> None:
+        """强制触发布局更新"""
+        if self._window is not None:
+            # 通过设置最小尺寸触发重新布局
+            current_size = self._window.size
+            self._window.size = (current_size[0] + 1, current_size[1])
+            self._window.size = current_size
+
     def _on_layout(self, layout_context) -> None:
         """布局回调 - 调整所有子组件的位置和大小"""
         r = self._window.content_rect
+        em = self._window.theme.font_size
+
+        # 计算左侧面板实际宽度
+        left_width = self.COLLAPSED_SIZE if self._left_panel_collapsed else self.LEFT_PANEL_WIDTH
+
+        # 计算底部面板实际高度
+        bottom_height = self.COLLAPSED_SIZE if self._bottom_panel_collapsed else self.BOTTOM_PANEL_HEIGHT
 
         # 3D 场景占据除了左侧和底部之外的全部区域
-        scene_width = r.width - self.LEFT_PANEL_WIDTH
+        scene_width = r.width - left_width
+        scene_height = r.height - bottom_height
         self._scene_widget.frame = gui.Rect(
-            self.LEFT_PANEL_WIDTH, 0, scene_width, r.height - self.BOTTOM_PANEL_HEIGHT
+            left_width, 0, scene_width, scene_height
         )
 
         # 左侧面板
-        self._left_panel.frame = gui.Rect(0, 0, self.LEFT_PANEL_WIDTH, r.height - self.BOTTOM_PANEL_HEIGHT)
+        self._left_panel.frame = gui.Rect(0, 0, left_width, scene_height)
 
         # 底部面板
-        self._bottom_panel.frame = gui.Rect(0, r.height - self.BOTTOM_PANEL_HEIGHT, r.width, self.BOTTOM_PANEL_HEIGHT)
+        self._bottom_panel.frame = gui.Rect(0, r.height - bottom_height, r.width, bottom_height)
+
+        # 折叠按钮位置
+        btn_size = int(1.5 * em)
+
+        # 左侧折叠按钮 (垂直放置)
+        self._left_toggle_btn.frame = gui.Rect(0, r.height // 2 - btn_size, btn_size, btn_size)
+
+        # 底部折叠按钮 (水平放置)
+        self._bottom_toggle_btn.frame = gui.Rect(r.width // 2 - btn_size, r.height - bottom_height, btn_size, btn_size)
 
     # =========================================================================
     # 事件处理器

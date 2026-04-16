@@ -33,10 +33,28 @@ pytest tests/test_main_window.py -v
 项目采用**三层架构**，基于 Open3D GUI (`o3d.visualization.gui`):
 
 1. **应用层 (UI)**: `src/ui/` - Open3D GUI 组件
-   - `main_window.py` ✅ - 主窗口，使用 `o3d.visualization.gui.Window`
+   - `main_window.py` ✅ - 主窗口，支持面板折叠
    - `db_tree_panel.py` - DB树面板，嵌入主窗口左侧
    - `property_panel.py` - 属性面板，嵌入主窗口
    - `console_panel.py` - 控制台面板，底部可滚动区域
+
+### 主窗口折叠功能
+
+| 功能 | 说明 | 快捷键 |
+|------|------|--------|
+| 左侧面板折叠 | 向左完全折叠/展开 | `L` |
+| 底部面板折叠 | 向下完全折叠/展开 | `B` |
+| 折叠按钮 | 位于面板边缘，点击切换 | - |
+
+```python
+# 代码控制折叠
+window.toggle_left_panel()   # 切换左侧面板
+window.toggle_bottom_panel() # 切换底部面板
+
+# 查询折叠状态
+window.is_left_panel_collapsed
+window.is_bottom_panel_collapsed
+```
 
 2. **业务层 (Core)**: `src/core/` - 核心服务
    - `cloud_manager.py` - 点云的加载、卸载、状态管理

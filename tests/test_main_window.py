@@ -6,7 +6,8 @@
     2. 组件创建
     3. 布局配置
     4. 回调函数
-    5. 工厂方法
+    5. 折叠功能
+    6. 工厂方法
 """
 
 import pytest
@@ -43,6 +44,7 @@ class TestMainWindow:
         assert MainWindow.DEFAULT_HEIGHT == 800
         assert MainWindow.LEFT_PANEL_WIDTH == 250
         assert MainWindow.BOTTOM_PANEL_HEIGHT == 150
+        assert MainWindow.COLLAPSED_SIZE == 5
 
     def test_property_accessors(self):
         """测试属性访问器抛出正确异常"""
@@ -91,6 +93,73 @@ class TestMainWindow:
         window = MainWindow()
         # 未初始化时调用应该不抛异常
         window.clear_console()
+
+
+class TestCollapseFeature:
+    """折叠功能测试"""
+
+    def test_init_collapsed_state(self):
+        """测试初始折叠状态"""
+        from src.ui.main_window import MainWindow
+
+        window = MainWindow()
+        assert window.is_left_panel_collapsed is False
+        assert window.is_bottom_panel_collapsed is False
+
+    def test_toggle_left_panel(self):
+        """测试切换左侧面板"""
+        from src.ui.main_window import MainWindow
+
+        window = MainWindow()
+
+        # 初始状态
+        assert window.is_left_panel_collapsed is False
+
+        # 切换到折叠
+        window.toggle_left_panel()
+        assert window.is_left_panel_collapsed is True
+
+        # 切换到展开
+        window.toggle_left_panel()
+        assert window.is_left_panel_collapsed is False
+
+    def test_toggle_bottom_panel(self):
+        """测试切换底部面板"""
+        from src.ui.main_window import MainWindow
+
+        window = MainWindow()
+
+        # 初始状态
+        assert window.is_bottom_panel_collapsed is False
+
+        # 切换到折叠
+        window.toggle_bottom_panel()
+        assert window.is_bottom_panel_collapsed is True
+
+        # 切换到展开
+        window.toggle_bottom_panel()
+        assert window.is_bottom_panel_collapsed is False
+
+    def test_collapse_independent(self):
+        """测试两个面板折叠状态独立"""
+        from src.ui.main_window import MainWindow
+
+        window = MainWindow()
+
+        # 折叠左侧，不影响底部
+        window.toggle_left_panel()
+        assert window.is_left_panel_collapsed is True
+        assert window.is_bottom_panel_collapsed is False
+
+        # 折叠底部，不影响左侧
+        window.toggle_bottom_panel()
+        assert window.is_left_panel_collapsed is True
+        assert window.is_bottom_panel_collapsed is True
+
+        # 展开左侧
+        window.toggle_left_panel()
+        assert window.is_left_panel_collapsed is False
+        assert window.is_bottom_panel_collapsed is True
 
 
 class TestMainWindowFactory:
