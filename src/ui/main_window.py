@@ -347,10 +347,15 @@ class MainWindow:
 
     def _setup_shortcuts(self) -> None:
         """设置键盘快捷键"""
-        # L 键切换左侧面板
-        self._window.add_key_callback(gui.KeyName.L, lambda: self.toggle_left_panel())
-        # B 键切换底部面板
-        self._window.add_key_callback(gui.KeyName.B, lambda: self.toggle_bottom_panel())
+        def handle_key(event):
+            """处理键盘事件"""
+            if event.key == gui.KeyName.L:
+                self.toggle_left_panel()
+            elif event.key == gui.KeyName.B:
+                self.toggle_bottom_panel()
+            return gui.KeyEvent.Result.HANDLED
+
+        self._window.set_on_key(handle_key)
         _logger.debug("Keyboard shortcuts configured (L=left, B=bottom).")
 
     def _force_layout_update(self) -> None:
