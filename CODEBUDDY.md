@@ -2,6 +2,10 @@
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
+git信息：
+用户名 mingyangpeng
+邮箱 8631020892@qq.com
+
 ## 项目概述
 
 ManualCloudCompare 是一个基于 Python 3.10 + Open3D 0.19 原生 GUI 的 3D 点云可视化应用，使用 Open3D GUI 替代 Qt。
