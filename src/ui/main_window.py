@@ -37,14 +37,14 @@ class MainWindow:
     DEFAULT_WIDTH: int = 1280
     DEFAULT_HEIGHT: int = 800
 
-    # 左侧面板展开宽度 (像素) - 缩小到 180px
-    LEFT_PANEL_WIDTH: int = 180
+    # 左侧面板展开宽度 (像素) - 缩小到 150px
+    LEFT_PANEL_WIDTH: int = 150
 
-    # 底部面板展开高度 (像素) - 缩小到 120px
-    BOTTOM_PANEL_HEIGHT: int = 120
+    # 底部面板展开高度 (像素) - 缩小到 100px
+    BOTTOM_PANEL_HEIGHT: int = 100
 
-    # 折叠后残留宽度 (仅折叠图标宽度) - 缩小到 20px
-    COLLAPSED_ICON_WIDTH: int = 20
+    # 折叠后残留宽度 (仅折叠图标宽度) - 缩小到 18px
+    COLLAPSED_ICON_WIDTH: int = 18
 
     def __init__(
         self,

@@ -42,9 +42,9 @@ class TestMainWindow:
 
         assert MainWindow.DEFAULT_WIDTH == 1280
         assert MainWindow.DEFAULT_HEIGHT == 800
-        assert MainWindow.LEFT_PANEL_WIDTH == 180
-        assert MainWindow.BOTTOM_PANEL_HEIGHT == 120
-        assert MainWindow.COLLAPSED_ICON_WIDTH == 20
+        assert MainWindow.LEFT_PANEL_WIDTH == 150
+        assert MainWindow.BOTTOM_PANEL_HEIGHT == 100
+        assert MainWindow.COLLAPSED_ICON_WIDTH == 18
 
     def test_property_accessors(self):
         """测试属性访问器抛出正确异常"""
