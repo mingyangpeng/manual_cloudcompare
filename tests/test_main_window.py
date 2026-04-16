@@ -45,6 +45,8 @@ class TestMainWindow:
         assert MainWindow.LEFT_PANEL_WIDTH == 150
         assert MainWindow.BOTTOM_PANEL_HEIGHT == 100
         assert MainWindow.COLLAPSED_ICON_WIDTH == 18
+        assert MainWindow.MIN_LEFT_PANEL_WIDTH == 80
+        assert MainWindow.MAX_LEFT_PANEL_WIDTH == 400
 
     def test_property_accessors(self):
         """测试属性访问器抛出正确异常"""
