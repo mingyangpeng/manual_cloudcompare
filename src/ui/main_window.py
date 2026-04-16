@@ -5,9 +5,10 @@
 依赖: o3d.visualization.gui, o3d.visualization.rendering (Open3D 0.19+)
 
 功能特性:
-    - 左侧面板支持折叠 (使用 CollapsableVert)
-    - 底部面板支持折叠 (使用 CollapsableVert)
-    - 点击面板标题栏即可展开/收起
+    - 左侧面板完全折叠隐藏，鼠标靠近左边缘时显示展开按钮
+    - 底部面板完全折叠隐藏，鼠标靠近下边缘时显示展开按钮
+    - 点击展开按钮恢复面板
+    - 键盘快捷键辅助 (L=左侧, B=底部)
 """
 
 from __future__ import annotations
@@ -28,8 +29,8 @@ class MainWindow:
 
     使用 Open3D 原生 GUI 框架构建，包含：
     - 3D 渲染区域 (SceneWidget)
-    - 左侧面板 (DB树 + 属性窗口) - 支持折叠
-    - 底部控制台面板 - 支持折叠
+    - 左侧面板 (DB树 + 属性窗口) - 完全隐藏，边缘触发显示
+    - 底部控制台面板 - 完全隐藏，边缘触发显示
     """
 
     # 默认窗口尺寸
@@ -41,6 +42,12 @@ class MainWindow:
 
     # 底部面板展开高度 (像素)
     BOTTOM_PANEL_HEIGHT: int = 150
+
+    # 边缘热区宽度 (鼠标靠近边缘时显示展开按钮)
+    EDGE_HOT_ZONE: int = 5
+
+    # 展开按钮大小
+    EXPAND_BUTTON_SIZE: int = 32
 
     def __init__(
         self,
@@ -63,12 +70,24 @@ class MainWindow:
         # Open3D GUI 组件
         self._window: Optional[gui.Window] = None
         self._scene_widget: Optional[gui.SceneWidget] = None
-        self._left_panel: Optional[gui.CollapsableVert] = None
-        self._bottom_panel: Optional[gui.CollapsableVert] = None
+        self._left_panel: Optional[gui.Vert] = None
+        self._bottom_panel: Optional[gui.Vert] = None
 
-        # 面板内部容器
-        self._left_panel_content: Optional[gui.Vert] = None
-        self._bottom_panel_content: Optional[gui.Vert] = None
+        # 边缘展开按钮 (悬浮在场景边缘)
+        self._left_expand_btn: Optional[gui.Button] = None
+        self._bottom_expand_btn: Optional[gui.Button] = None
+
+        # 展开按钮显示状态
+        self._show_left_btn: bool = False
+        self._show_bottom_btn: bool = False
+
+        # 面板可见状态
+        self._left_panel_visible: bool = True
+        self._bottom_panel_visible: bool = True
+
+        # 面板内部容器 (用于折叠内容)
+        self._left_panel_header: Optional[gui.CollapsableVert] = None
+        self._bottom_panel_header: Optional[gui.CollapsableVert] = None
 
         # 控制台文本控件
         self._console_text: Optional[gui.TextEdit] = None
@@ -98,14 +117,14 @@ class MainWindow:
         return self._scene_widget
 
     @property
-    def left_panel(self) -> gui.CollapsableVert:
+    def left_panel(self) -> gui.Vert:
         """获取左侧面板"""
         if self._left_panel is None:
             raise RuntimeError("LeftPanel not initialized. Call setup() first.")
         return self._left_panel
 
     @property
-    def bottom_panel(self) -> gui.CollapsableVert:
+    def bottom_panel(self) -> gui.Vert:
         """获取底部面板"""
         if self._bottom_panel is None:
             raise RuntimeError("BottomPanel not initialized. Call setup() first.")
@@ -117,18 +136,14 @@ class MainWindow:
         return self._is_running
 
     @property
-    def is_left_panel_collapsed(self) -> bool:
-        """获取左侧面板折叠状态"""
-        if self._left_panel is not None:
-            return not self._left_panel.get_is_open()
-        return False
+    def is_left_panel_visible(self) -> bool:
+        """获取左侧面板可见状态"""
+        return self._left_panel_visible
 
     @property
-    def is_bottom_panel_collapsed(self) -> bool:
-        """获取底部面板折叠状态"""
-        if self._bottom_panel is not None:
-            return not self._bottom_panel.get_is_open()
-        return False
+    def is_bottom_panel_visible(self) -> bool:
+        """获取底部面板可见状态"""
+        return self._bottom_panel_visible
 
     # =========================================================================
     # 公共方法
@@ -144,20 +159,26 @@ class MainWindow:
         # 2. 创建 3D 场景控件
         self._create_scene_widget()
 
-        # 3. 创建左侧面板
+        # 3. 创建边缘展开按钮
+        self._create_expand_buttons()
+
+        # 4. 创建左侧面板
         self._create_left_panel()
 
-        # 4. 创建底部控制台面板
+        # 5. 创建底部控制台面板
         self._create_bottom_panel()
 
-        # 5. 设置自定义布局回调
+        # 6. 设置自定义布局回调
         self._setup_layout()
 
-        # 6. 设置场景
+        # 7. 设置场景
         self._setup_scene()
 
-        # 7. 设置键盘快捷键 (保留作为辅助方式)
+        # 8. 设置键盘快捷键
         self._setup_shortcuts()
+
+        # 9. 设置定时器检测鼠标位置
+        self._setup_mouse_tracking()
 
         _logger.debug(f"MainWindow initialized: {self._width}x{self._height}")
 
@@ -182,11 +203,11 @@ class MainWindow:
         """获取 3D 场景控件"""
         return self.scene_widget
 
-    def get_left_panel(self) -> gui.CollapsableVert:
+    def get_left_panel(self) -> gui.Vert:
         """获取左侧面板"""
         return self.left_panel
 
-    def get_bottom_panel(self) -> gui.CollapsableVert:
+    def get_bottom_panel(self) -> gui.Vert:
         """获取底部面板"""
         return self.bottom_panel
 
@@ -204,19 +225,47 @@ class MainWindow:
         if self._console_text is not None:
             self._console_text.text_value = ""
 
+    def show_left_panel(self) -> None:
+        """显示左侧面板"""
+        self._left_panel_visible = True
+        self._show_left_btn = False
+        self._update_layout()
+        _logger.debug("Left panel shown.")
+
+    def hide_left_panel(self) -> None:
+        """隐藏左侧面板"""
+        self._left_panel_visible = False
+        self._show_left_btn = False
+        self._update_layout()
+        _logger.debug("Left panel hidden.")
+
     def toggle_left_panel(self) -> None:
-        """切换左侧面板折叠状态"""
-        if self._left_panel is not None:
-            self._left_panel.set_is_open(self.is_left_panel_collapsed)
-            self._force_layout_update()
-            _logger.debug(f"Left panel collapsed: {self.is_left_panel_collapsed}")
+        """切换左侧面板显示状态"""
+        if self._left_panel_visible:
+            self.hide_left_panel()
+        else:
+            self.show_left_panel()
+
+    def show_bottom_panel(self) -> None:
+        """显示底部面板"""
+        self._bottom_panel_visible = True
+        self._show_bottom_btn = False
+        self._update_layout()
+        _logger.debug("Bottom panel shown.")
+
+    def hide_bottom_panel(self) -> None:
+        """隐藏底部面板"""
+        self._bottom_panel_visible = False
+        self._show_bottom_btn = False
+        self._update_layout()
+        _logger.debug("Bottom panel hidden.")
 
     def toggle_bottom_panel(self) -> None:
-        """切换底部面板折叠状态"""
-        if self._bottom_panel is not None:
-            self._bottom_panel.set_is_open(self.is_bottom_panel_collapsed)
-            self._force_layout_update()
-            _logger.debug(f"Bottom panel collapsed: {self.is_bottom_panel_collapsed}")
+        """切换底部面板显示状态"""
+        if self._bottom_panel_visible:
+            self.hide_bottom_panel()
+        else:
+            self.show_bottom_panel()
 
     # =========================================================================
     # 私有方法
@@ -239,66 +288,83 @@ class MainWindow:
         self._window.add_child(self._scene_widget)
         _logger.debug("SceneWidget created.")
 
+    def _create_expand_buttons(self) -> None:
+        """创建边缘展开按钮"""
+        # 左侧展开按钮
+        self._left_expand_btn = gui.Button("▶")
+        self._left_expand_btn.set_on_clicked(self.show_left_panel)
+        self._left_expand_btn.tooltip = "Show Side Panel"
+        self._window.add_child(self._left_expand_btn)
+
+        # 底部展开按钮
+        self._bottom_expand_btn = gui.Button("▲")
+        self._bottom_expand_btn.set_on_clicked(self.show_bottom_panel)
+        self._bottom_expand_btn.tooltip = "Show Console"
+        self._window.add_child(self._bottom_expand_btn)
+
+        _logger.debug("Expand buttons created.")
+
     def _create_left_panel(self) -> None:
-        """创建左侧面板 (使用 CollapsableVert 实现折叠)"""
+        """创建左侧面板"""
         em = self._window.theme.font_size
 
-        # 创建可折叠的标题栏
-        self._left_panel = gui.CollapsableVert("◀ Side Panel", 0, gui.Margins(0.25 * em, 0.25 * em, 0, 0))
-        self._left_panel.set_is_open(True)
+        # 创建主容器
+        self._left_panel = gui.Vert(0, gui.Margins(0.25 * em, 0.25 * em, 0, 0))
 
-        # 创建内容容器
-        self._left_panel_content = gui.Vert(0, gui.Margins(0, 0, 0, 0))
+        # 可折叠标题栏
+        self._left_panel_header = gui.CollapsableVert("◀ Side Panel", 0, gui.Margins(0, 0, 0, 0))
+        self._left_panel_header.set_is_open(True)
 
-        # DB 树区域 (内部也支持折叠)
+        # 内部内容容器
+        left_content = gui.Vert(0, gui.Margins(0, 0, 0, 0))
+
+        # DB 树区域
         db_tree_section = gui.CollapsableVert("DB Tree", 0, gui.Margins(0, 0, 0, 0))
         db_tree_section.set_is_open(True)
 
-        # DB 树占位符
         db_tree_placeholder = gui.Label("[Point Cloud List]")
         db_tree_placeholder.background_color = gui.Color(0.9, 0.9, 0.9)
         db_tree_section.add_child(db_tree_placeholder)
+        left_content.add_child(db_tree_section)
 
-        self._left_panel_content.add_child(db_tree_section)
+        left_content.add_child(gui.Label(""))
 
-        # 分隔
-        self._left_panel_content.add_child(gui.Label(""))
-
-        # 属性区域 (内部也支持折叠)
+        # 属性区域
         property_section = gui.CollapsableVert("Properties", 0, gui.Margins(0, 0, 0, 0))
         property_section.set_is_open(True)
 
-        # 属性占位符
         property_placeholder = gui.Label("[Property Info]")
         property_placeholder.background_color = gui.Color(0.9, 0.9, 0.85)
         property_section.add_child(property_placeholder)
+        left_content.add_child(property_section)
 
-        self._left_panel_content.add_child(property_section)
-
-        # 将内容添加到可折叠容器
-        self._left_panel.add_child(self._left_panel_content)
+        self._left_panel_header.add_child(left_content)
+        self._left_panel.add_child(self._left_panel_header)
 
         self._window.add_child(self._left_panel)
         _logger.debug("Left panel created.")
 
     def _create_bottom_panel(self) -> None:
-        """创建底部控制台面板 (使用 CollapsableVert 实现折叠)"""
+        """创建底部控制台面板"""
         em = self._window.theme.font_size
 
-        # 创建可折叠的标题栏
-        self._bottom_panel = gui.CollapsableVert("▲ Console", 0, gui.Margins(0.25 * em, 0.1 * em, 0, 0))
-        self._bottom_panel.set_is_open(True)
+        # 创建主容器
+        self._bottom_panel = gui.Vert(0, gui.Margins(0.25 * em, 0.1 * em, 0, 0))
 
-        # 创建内容容器
-        self._bottom_panel_content = gui.Vert(0, gui.Margins(0, 0, 0, 0))
+        # 可折叠标题栏
+        self._bottom_panel_header = gui.CollapsableVert("▲ Console", 0, gui.Margins(0, 0, 0, 0))
+        self._bottom_panel_header.set_is_open(True)
+
+        # 内部内容容器
+        bottom_content = gui.Vert(0, gui.Margins(0, 0, 0, 0))
 
         # 控制台文本
         self._console_text = gui.TextEdit()
         self._console_text.text_value = "Welcome to ManualCloudCompare v0.1.0\n" + "-" * 40 + "\n"
-        self._bottom_panel_content.add_child(self._console_text)
+        bottom_content.add_child(self._console_text)
 
-        # 将内容添加到可折叠容器
-        self._bottom_panel.add_child(self._bottom_panel_content)
+        self._bottom_panel_header.add_child(bottom_content)
+        self._bottom_panel.add_child(self._bottom_panel_header)
 
         self._window.add_child(self._bottom_panel)
         _logger.debug("Bottom panel created.")
@@ -337,7 +403,7 @@ class MainWindow:
         _logger.debug("Scene setup completed.")
 
     def _setup_shortcuts(self) -> None:
-        """设置键盘快捷键 (作为辅助方式)"""
+        """设置键盘快捷键"""
         def handle_key(event):
             """处理键盘事件"""
             if event.key == gui.KeyName.L:
@@ -349,52 +415,109 @@ class MainWindow:
         self._window.set_on_key(handle_key)
         _logger.debug("Keyboard shortcuts configured (L=left, B=bottom).")
 
-    def _force_layout_update(self) -> None:
-        """强制触发布局更新"""
+    def _setup_mouse_tracking(self) -> None:
+        """设置鼠标位置跟踪 (用于边缘热区检测)"""
+        def on_mouse(event):
+            """处理鼠标移动事件"""
+            if event.type == gui.MouseEvent.Type.MOVE:
+                self._handle_mouse_move(event.x, event.y)
+            return gui.SceneWidget.EventCallbackResult.HANDLED
+
+        self._scene_widget.set_on_mouse(on_mouse)
+        _logger.debug("Mouse tracking configured.")
+
+    def _handle_mouse_move(self, x: int, y: int) -> None:
+        """处理鼠标移动"""
+        if self._window is None:
+            return
+
+        r = self._window.content_rect
+        window_height = r.height
+
+        # 检查左边缘热区 (鼠标在窗口左边缘附近且面板隐藏)
+        if x <= self.EDGE_HOT_ZONE and not self._left_panel_visible:
+            self._show_left_btn = True
+        elif self._left_panel_visible or x > self.EDGE_HOT_ZONE + 10:
+            self._show_left_btn = False
+
+        # 检查下边缘热区 (鼠标在窗口下边缘附近且面板隐藏)
+        # 注意：y 坐标从顶部开始
+        if window_height - y <= self.EDGE_HOT_ZONE and not self._bottom_panel_visible:
+            self._show_bottom_btn = True
+        elif self._bottom_panel_visible or window_height - y > self.EDGE_HOT_ZONE + 10:
+            self._show_bottom_btn = False
+
+        # 更新按钮可见性
+        self._update_expand_buttons_visibility()
+        # 触发布局更新
+        self._update_layout()
+
+    def _update_expand_buttons_visibility(self) -> None:
+        """更新展开按钮的可见性"""
+        if self._left_expand_btn is not None:
+            self._left_expand_btn.visible = self._show_left_btn
+        if self._bottom_expand_btn is not None:
+            self._bottom_expand_btn.visible = self._show_bottom_btn
+
+    def _update_layout(self) -> None:
+        """更新布局"""
         if self._window is not None:
             self._window.set_needs_layout()
-            # 触发重绘
             self._window.post_redraw()
 
     def _on_layout(self, layout_context) -> None:
         """布局回调 - 调整所有子组件的位置和大小"""
         r = self._window.content_rect
+        em = self._window.theme.font_size
+        btn_size = self.EXPAND_BUTTON_SIZE
 
-        # 根据折叠状态计算左侧面板实际宽度
+        # 计算场景起始位置
+        scene_x = 0
+        scene_y = 0
+        scene_width = r.width
+        scene_height = r.height
+
+        # 左侧面板布局
         if self._left_panel is not None:
-            left_width = self.LEFT_PANEL_WIDTH
-            if self.is_left_panel_collapsed:
-                # 折叠时只显示标题栏宽度
-                left_width = 120  # 标题栏宽度
-            left_height = r.height
-
-            self._left_panel.frame = gui.Rect(0, 0, left_width, left_height)
-
-        # 根据折叠状态计算底部面板实际高度
-        if self._bottom_panel is not None:
-            bottom_width = r.width
-            if self.is_bottom_panel_collapsed:
-                # 折叠时只显示标题栏高度
-                bottom_height = 30  # 标题栏高度
+            if self._left_panel_visible:
+                # 面板可见
+                self._left_panel.frame = gui.Rect(0, 0, self.LEFT_PANEL_WIDTH, r.height)
+                scene_x = self.LEFT_PANEL_WIDTH
+                scene_width = r.width - self.LEFT_PANEL_WIDTH
+                # 左侧展开按钮不显示
+                self._show_left_btn = False
             else:
-                bottom_height = self.BOTTOM_PANEL_HEIGHT
+                # 面板隐藏
+                self._left_panel.frame = gui.Rect(0, 0, 0, 0)
 
-            self._bottom_panel.frame = gui.Rect(0, r.height - bottom_height, bottom_width, bottom_height)
-
-        # 3D 场景占据剩余空间
-        if self._scene_widget is not None:
-            scene_x = self.LEFT_PANEL_WIDTH if self._left_panel else 0
-            if self.is_left_panel_collapsed and self._left_panel:
-                scene_x = 120  # 标题栏宽度
-
-            scene_height = r.height
-            if self.is_bottom_panel_collapsed and self._bottom_panel:
-                scene_height = r.height - 30  # 减去标题栏高度
-            elif self._bottom_panel:
+        # 底部面板布局
+        if self._bottom_panel is not None:
+            if self._bottom_panel_visible:
+                # 面板可见
+                self._bottom_panel.frame = gui.Rect(0, r.height - self.BOTTOM_PANEL_HEIGHT, r.width, self.BOTTOM_PANEL_HEIGHT)
                 scene_height = r.height - self.BOTTOM_PANEL_HEIGHT
+                # 底部展开按钮不显示
+                self._show_bottom_btn = False
+            else:
+                # 面板隐藏
+                self._bottom_panel.frame = gui.Rect(0, 0, 0, 0)
 
-            scene_width = r.width - scene_x
-            self._scene_widget.frame = gui.Rect(scene_x, 0, scene_width, scene_height)
+        # 3D 场景
+        if self._scene_widget is not None:
+            self._scene_widget.frame = gui.Rect(scene_x, scene_y, scene_width, scene_height)
+
+        # 展开按钮布局
+        if self._left_expand_btn is not None:
+            # 左侧按钮位于场景左边缘中央
+            btn_y = r.height // 2 - btn_size // 2
+            self._left_expand_btn.frame = gui.Rect(scene_x, btn_y, btn_size, btn_size)
+            self._left_expand_btn.visible = self._show_left_btn
+
+        if self._bottom_expand_btn is not None:
+            # 底部按钮位于场景下边缘中央
+            btn_x = r.width // 2 - btn_size // 2
+            self._bottom_expand_btn.frame = gui.Rect(btn_x, scene_height - btn_size, btn_size, btn_size)
+            self._bottom_expand_btn.visible = self._show_bottom_btn
 
     # =========================================================================
     # 事件处理器

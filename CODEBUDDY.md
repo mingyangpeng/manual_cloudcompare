@@ -42,19 +42,25 @@ pytest tests/test_main_window.py -v
 
 | 功能 | 说明 | 快捷键 |
 |------|------|--------|
-| 左侧面板折叠 | 点击标题栏 "◀ Side Panel" 展开/收起 | `L` |
-| 底部面板折叠 | 点击标题栏 "▲ Console" 展开/收起 | `B` |
+| 左侧面板隐藏 | 鼠标靠近左边缘时显示 "▶" 按钮 | `L` |
+| 底部面板隐藏 | 鼠标靠近下边缘时显示 "▲" 按钮 | `B` |
+| 展开面板 | 点击 "▶"/"▲" 按钮恢复显示 | - |
 
-折叠效果与 DB Tree 内部折叠一致，使用 `CollapsableVert` 组件实现。
+交互方式：
+- 面板完全隐藏后，鼠标靠近对应边缘会显示展开按钮
+- 点击展开按钮恢复面板显示
+- DB Tree 和 Properties 内部支持折叠 (`CollapsableVert`)
 
 ```python
-# 代码控制折叠
+# 代码控制显示/隐藏
 window.toggle_left_panel()   # 切换左侧面板
 window.toggle_bottom_panel() # 切换底部面板
+window.show_left_panel()     # 显示左侧面板
+window.hide_left_panel()     # 隐藏左侧面板
 
-# 查询折叠状态
-window.is_left_panel_collapsed
-window.is_bottom_panel_collapsed
+# 查询可见状态
+window.is_left_panel_visible
+window.is_bottom_panel_visible
 ```
 
 2. **业务层 (Core)**: `src/core/` - 核心服务
