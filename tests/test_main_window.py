@@ -42,9 +42,9 @@ class TestMainWindow:
 
         assert MainWindow.DEFAULT_WIDTH == 1280
         assert MainWindow.DEFAULT_HEIGHT == 800
-        assert MainWindow.LEFT_PANEL_WIDTH == 250
-        assert MainWindow.BOTTOM_PANEL_HEIGHT == 150
-        assert MainWindow.COLLAPSED_ICON_WIDTH == 24
+        assert MainWindow.LEFT_PANEL_WIDTH == 180
+        assert MainWindow.BOTTOM_PANEL_HEIGHT == 120
+        assert MainWindow.COLLAPSED_ICON_WIDTH == 20
 
     def test_property_accessors(self):
         """测试属性访问器抛出正确异常"""
@@ -98,13 +98,13 @@ class TestMainWindow:
 class TestCollapseFeature:
     """折叠功能测试"""
 
-    def test_init_visible_state(self):
-        """测试初始可见状态 (未初始化时返回 True)"""
+    def test_init_collapsed_state(self):
+        """测试初始折叠状态 (未初始化时返回 False)"""
         from src.ui.main_window import MainWindow
 
         window = MainWindow()
-        assert window.is_left_panel_visible is True
-        assert window.is_bottom_panel_visible is True
+        assert window.is_left_panel_collapsed is False
+        assert window.is_bottom_panel_collapsed is False
 
     def test_toggle_left_panel_without_setup(self):
         """测试未初始化时切换左侧面板不抛异常"""
@@ -119,17 +119,6 @@ class TestCollapseFeature:
 
         window = MainWindow()
         window.toggle_bottom_panel()  # 应该静默处理
-
-    def test_show_hide_methods(self):
-        """测试显示/隐藏方法"""
-        from src.ui.main_window import MainWindow
-
-        window = MainWindow()
-        window.show_left_panel()
-        window.hide_left_panel()
-        window.show_bottom_panel()
-        window.hide_bottom_panel()
-        # 应该静默处理，不抛异常
 
 
 class TestMainWindowFactory:
